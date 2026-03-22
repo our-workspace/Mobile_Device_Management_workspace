@@ -1,0 +1,22 @@
+export declare const config: {
+    readonly port: number;
+    readonly host: string;
+    readonly publicHost: string;
+    readonly nodeEnv: string;
+    readonly isDev: boolean;
+    readonly databaseUrl: string;
+    readonly redisUrl: string;
+    readonly jwtSecret: string;
+    readonly jwtDeviceExpiry: string;
+    readonly jwtAdminExpiry: string;
+    readonly enrollmentToken: string;
+    readonly fileStoragePath: string;
+    readonly fileStorageMode: "local" | "s3";
+    readonly s3Bucket: string | undefined;
+    readonly s3Region: string;
+    readonly heartbeatTtlSeconds: number;
+    readonly heartbeatIntervalSeconds: number;
+    readonly wsAgentPath: "/ws/agent";
+    readonly wsDashboardPath: "/ws/dashboard";
+};
+export type Config = typeof config;

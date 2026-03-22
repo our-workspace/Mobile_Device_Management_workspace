@@ -1,0 +1,83 @@
+import type { RegisterDeviceRequest, RegisterDeviceResponse } from '../types/messages';
+import type { Device } from '@prisma/client';
+export declare const DeviceService: {
+    registerDevice(data: RegisterDeviceRequest): Promise<RegisterDeviceResponse>;
+    verifyDeviceToken(authToken: string): Promise<{
+        deviceUid: string;
+        device: Device;
+    }>;
+    getAllDevices(): Promise<{
+        isOnline: boolean;
+        model: string;
+        id: string;
+        deviceUid: string;
+        serialNumber: string | null;
+        manufacturer: string;
+        androidVersion: string;
+        agentVersion: string;
+        enrolledAt: Date;
+        lastSeenAt: Date | null;
+    }[]>;
+    getDeviceByUid(deviceUid: string): Promise<{
+        isOnline: boolean;
+        authTokenHash: undefined;
+        commands: {
+            params: import("@prisma/client/runtime/library").JsonValue;
+            id: string;
+            createdAt: Date;
+            result: import("@prisma/client/runtime/library").JsonValue | null;
+            commandId: string;
+            deviceId: string;
+            adminId: string | null;
+            commandType: string;
+            status: import(".prisma/client").$Enums.CommandStatus;
+            priority: string;
+            timeoutSeconds: number;
+            acknowledgedAt: Date | null;
+            completedAt: Date | null;
+            errorCode: string | null;
+            errorMessage: string | null;
+        }[];
+        backupFiles: {
+            id: string;
+            createdAt: Date;
+            commandId: string | null;
+            deviceId: string;
+            fileType: string;
+            fileKey: string;
+            fileName: string;
+            fileSizeBytes: bigint;
+            recordCount: number | null;
+            storageProvider: string;
+            mimeType: string;
+            expiresAt: Date | null;
+        }[];
+        model: string;
+        id: string;
+        deviceUid: string;
+        androidId: string;
+        serialNumber: string | null;
+        manufacturer: string;
+        androidVersion: string;
+        sdkVersion: number;
+        agentVersion: string;
+        enrolledAt: Date;
+        lastSeenAt: Date | null;
+    } | null>;
+    updateLastSeen(deviceUid: string): Promise<void>;
+    saveHeartbeat(deviceUid: string, heartbeatData: {
+        batteryLevel: number;
+        isCharging: boolean;
+        chargingType: string | null;
+        networkType: string;
+        isConnected: boolean;
+        wifiSignalLevel: number | null;
+        mobileNetType: string | null;
+        storageFreeBytes: bigint;
+        storageTotalBytes: bigint;
+        usedPercent: number;
+        deviceUptimeMs?: bigint;
+        agentUptimeMs?: bigint;
+    }): Promise<void>;
+    _generateDeviceJwt(deviceUid: string): string;
+};

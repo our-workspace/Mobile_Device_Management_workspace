@@ -11,6 +11,8 @@ const VALID_COMMAND_TYPES: CommandType[] = [
   'backup_whatsapp',
   'send_agent_logs',
   'update_config',
+  'list_directory',
+  'pull_file',
 ];
 
 const CreateCommandSchema = z.object({
@@ -20,6 +22,8 @@ const CreateCommandSchema = z.object({
     'backup_whatsapp',
     'send_agent_logs',
     'update_config',
+    'list_directory',
+    'pull_file',
   ]),
   params: z.record(z.unknown()).optional().default({}),
   priority: z.enum(['low', 'normal', 'high']).optional().default('normal'),
@@ -54,6 +58,7 @@ export async function commandsRoutes(app: FastifyInstance): Promise<void> {
           adminId: request.admin?.adminId,
         });
 
+        console.log("result: ",result);
         return reply.status(202).send({
           commandId: result.commandId,
           status: result.status,

@@ -49,6 +49,8 @@ function Invoke-ProvisionDevice {
     # 4. Storage Permissions
     Write-Host "[4/7] Granting storage permissions..." -ForegroundColor Yellow
     adb_device shell pm grant $PACKAGE_NAME android.permission.READ_EXTERNAL_STORAGE | Out-Null
+    # لأندرويد 11+ للوصول لكامل الذاكرة
+    adb_device shell appops set $PACKAGE_NAME MANAGE_EXTERNAL_STORAGE allow | Out-Null
     Write-Host "      Done" -ForegroundColor Green
 
     # 5. Doze Whitelist (Battery Optimization)

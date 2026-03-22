@@ -92,5 +92,5 @@ export type DashboardEvent =
   | { event: 'device_online'; deviceUid: string; timestamp: string }
   | { event: 'device_offline'; deviceUid: string; timestamp: string }
   | { event: 'heartbeat'; deviceUid: string; data: HeartbeatData; timestamp: string }
-  | { event: 'command_result'; commandId: string; status: string; result?: unknown; timestamp: string }
+  | { event: 'command_result'; commandId: string; commandType: string; status: string; result?: unknown; error?: { message: string, code: string }; executionTimeMs?: number; timestamp: string }
   | { event: 'notifications'; deviceUid: string; notifications: Notification[]; timestamp: string };

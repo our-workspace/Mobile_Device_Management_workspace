@@ -206,6 +206,69 @@ export async function devicesRoutes(app: FastifyInstance): Promise<void> {
   );
 
   // -----------------------------------------------------------
+  // POST /api/v1/devices/:deviceUid/files/upload
+  // يستقبل ملفات عامة عبر Multipart (بواسطة PullFileCommand)
+  // -----------------------------------------------------------
+  app.post<{ Params: { deviceUid: string } }>(
+    '/:deviceUid/files/upload',
+    { preHandler: requireDevice },
+    async (request, reply) => {
+      const { deviceUid } = request.params;
+      
+      const data = await request.file();
+      if (!data) {
+        return reply.status(400).send({ error: 'MISSING_FILE', message: 'No file uploaded' });
+      }
+
+      const device = await prisma.device.findUnique({ where: { deviceUid } });
+      if (!device) {
+        return reply.status(404).send({ error: 'DEVICE_NOT_FOUND' });
+      }
+
+      // قراءة الـ fields الأخرى مثل commandId (إن وُجد)
+      const commandId = data.fields.commandId ? (data.fields.commandId as any).value : undefined;
+
+      // إنشاء مجلد الحفظ
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+      const originalName = data.filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileName  = `file_${timestamp}_${originalName}`;
+      const dirPath   = path.resolve(config.fileStoragePath, 'backups', deviceUid);
+      const filePath  = path.join(dirPath, fileName);
+      const fileKey   = `backups/${deviceUid}/${fileName}`;
+
+      fs.mkdirSync(dirPath, { recursive: true });
+
+      // حفظ الملف على الـ Disk
+      const writeStream = fs.createWriteStream(filePath);
+      await new Promise((resolve, reject) => {
+        data.file.pipe(writeStream)
+          .on('finish', resolve)
+          .on('error', reject);
+      });
+
+      const fileSizeBytes = BigInt(fs.statSync(filePath).size);
+
+      // حفظ السجل في قاعدة البيانات
+      await prisma.backupFile.create({
+        data: {
+          deviceId       : device.id,
+          commandId      : commandId,
+          fileType       : 'generic',
+          fileKey,
+          fileName,
+          fileSizeBytes,
+          storageProvider: 'local',
+          mimeType       : data.mimetype || 'application/octet-stream',
+        },
+      });
+
+      console.log(`[FilesRoute] File saved: ${fileKey} (${fileSizeBytes} bytes)`);
+
+      return reply.status(201).send({ fileKey, fileName, size: Number(fileSizeBytes) });
+    }
+  );
+
+  // -----------------------------------------------------------
   // GET /api/v1/devices/:deviceUid/files/:fileKey/download
   // تحميل ملف backup (admin only)
   // -----------------------------------------------------------

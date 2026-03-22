@@ -1,9 +1,12 @@
 // src/pages/DeviceDetailPage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { devicesApi, commandsApi } from '../services/api';
 import { useDashboardStore } from '../store/dashboardStore';
+import { wsService } from '../services/wsService';
+import { FileManager } from '../components/FileManager';
+import type { DashboardEvent } from '../types';
 
 const COMMANDS = [
   { type: 'get_device_info', label: '📋 Get Device Info', description: 'Fetch full device details' },
@@ -14,13 +17,6 @@ const COMMANDS = [
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleString();
-}
-
-function formatBytes(bytes: number) {
-  if (!bytes) return '—';
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -34,7 +30,8 @@ export function DeviceDetailPage() {
   const queryClient = useQueryClient();
   const deviceStates = useDashboardStore((s) => s.deviceStates);
   const [lastResult, setLastResult] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'commands' | 'notifications'>('commands');
+  const [activeTab, setActiveTab] = useState<'commands' | 'notifications' | 'files'>('commands');
+  const [latestCommandResult, setLatestCommandResult] = useState<any | null>(null);
 
   const { data: deviceData, isLoading } = useQuery({
     queryKey: ['device', deviceUid],
@@ -55,6 +52,20 @@ export function DeviceDetailPage() {
     enabled: !!deviceUid && activeTab === 'notifications',
     refetchInterval: 10_000,
   });
+
+  // الاستماع للأحداث الحية من WebSocket (بما فيها نتائج الأوامر)
+  useEffect(() => {
+    const unsubscribe = wsService.on((event: DashboardEvent) => {
+      if (event.event === 'command_result' && activeTab === 'files') {
+        // Send to FileManager
+        setLatestCommandResult(event);
+      } else if (event.event === 'command_result') {
+        // If it was another command, we invalidate the list
+        queryClient.invalidateQueries({ queryKey: ['device-commands', deviceUid] });
+      }
+    });
+    return () => unsubscribe();
+  }, [activeTab, deviceUid, queryClient]);
 
   const dispatchMutation = useMutation({
     mutationFn: ({ commandType, params }: { commandType: string; params?: Record<string, unknown> }) =>
@@ -220,10 +231,10 @@ export function DeviceDetailPage() {
         )}
       </div>
 
-      {/* Tabs: Commands / Notifications */}
+      {/* Tabs: Commands / Notifications / Files */}
       <div className="card">
         <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
-          {(['commands', 'notifications'] as const).map((tab) => (
+          {(['commands', 'notifications', 'files'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -241,7 +252,7 @@ export function DeviceDetailPage() {
                 marginBottom: -1,
               }}
             >
-              {tab === 'commands' ? '📋 Command History' : '🔔 Notifications'}
+              {tab === 'commands' ? '📋 Command History' : tab === 'files' ? '📁 File Explorer' : '🔔 Notifications'}
             </button>
           ))}
         </div>
@@ -307,6 +318,10 @@ export function DeviceDetailPage() {
               </tbody>
             </table>
           </div>
+        )}
+
+        {activeTab === 'files' && (
+          <FileManager deviceUid={deviceUid!} latestCommandResult={latestCommandResult} />
         )}
       </div>
     </>

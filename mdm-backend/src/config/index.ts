@@ -24,7 +24,7 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/mdm_db',
 
   // Redis
-  redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
+  redisUrl: process.env.REDIS_URL || 'redis://localhost:6380',
 
   // JWT
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me-in-production-32chars',

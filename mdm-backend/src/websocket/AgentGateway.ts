@@ -254,6 +254,7 @@ async function handleCommandResult(
   Registry.broadcastToDashboards({
     event: 'command_result',
     commandId,
+    commandType: message.payload.commandType,
     status,
     result,
     error,

@@ -1,6 +1,6 @@
 // src/store/dashboardStore.ts
 import { create } from 'zustand';
-import type { Admin, Device, HeartbeatData } from '../types';
+import type { Admin, HeartbeatData } from '../types';
 
 interface DeviceOnlineState {
   [deviceUid: string]: {

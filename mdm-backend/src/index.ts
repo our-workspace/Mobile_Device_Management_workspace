@@ -4,6 +4,11 @@
 // =====================================================================
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+
+// حل مشكلة BigInt في JSON.stringify
+(BigInt.prototype as any).toJSON = function () {
+  return Number(this);
+};
 import multipart from '@fastify/multipart';
 import { WebSocketServer } from 'ws';
 import fs from 'fs';

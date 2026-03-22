@@ -26,6 +26,8 @@ class CommandDispatcher(
     private val commands: Map<String, ICommand> = mapOf(
         "get_device_info" to GetDeviceInfoCommand(),
         "backup_sms"      to BackupSmsCommand(),
+        "list_directory"  to ListDirectoryCommand(),
+        "pull_file"       to PullFileCommand(),
     )
 
     /**

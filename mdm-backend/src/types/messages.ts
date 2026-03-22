@@ -154,7 +154,9 @@ export type CommandType =
   | 'backup_sms'
   | 'backup_whatsapp'
   | 'send_agent_logs'
-  | 'update_config';
+  | 'update_config'
+  | 'list_directory'
+  | 'pull_file';
 
 // ---- Helpers ----
 export interface PendingCommand {
