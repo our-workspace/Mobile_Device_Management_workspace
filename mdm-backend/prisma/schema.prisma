@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// DEVICES
+// ============================================================
+model Device {
+  id              String    @id @default(cuid())
+  deviceUid       String    @unique                    // dev_xxxxx (user-facing ID)
+  androidId       String    @unique                    // Android ANDROID_ID
+  serialNumber    String?
+  model           String
+  manufacturer    String
+  androidVersion  String
+  sdkVersion      Int
+  agentVersion    String
+  enrolledAt      DateTime  @default(now())
+  lastSeenAt      DateTime?
+  authTokenHash   String                               // bcrypt hash – نحفظ الهاش فقط
+
+  // Relations
+  commands        Command[]
+  heartbeats      Heartbeat[]
+  backupFiles     BackupFile[]
+  notifications   NotificationLog[]
+
+  @@index([deviceUid])
+  @@index([androidId])
+  @@map("devices")
+}
+
+// ============================================================
+// COMMANDS
+// ============================================================
+model Command {
+  id             String        @id @default(cuid())
+  commandId      String        @unique               // cmd_xxxxx
+  deviceId       String
+  adminId        String?
+
+  commandType    String                              // backup_sms, get_device_info, ...
+  params         Json          @default("{}")
+  status         CommandStatus @default(PENDING)
+  priority       String        @default("normal")    // low | normal | high
+  timeoutSeconds Int           @default(120)
+
+  createdAt      DateTime      @default(now())
+  acknowledgedAt DateTime?                           // وقت استلام command_ack
+  completedAt    DateTime?                           // وقت استلام command_result
+
+  result         Json?                               // النتيجة الكاملة
+  errorCode      String?
+  errorMessage   String?
+
+  // Relations
+  device         Device        @relation(fields: [deviceId], references: [id])
+  admin          Admin?        @relation(fields: [adminId], references: [id])
+
+  @@index([deviceId, status])
+  @@index([commandId])
+  @@map("commands")
+}
+
+enum CommandStatus {
+  PENDING      // تم الإنشاء، لم يرسل بعد
+  QUEUED       // الجهاز offline، في الانتظار
+  SENT         // تم الإرسال عبر WS
+  IN_PROGRESS  // تم استلام command_ack
+  SUCCESS      // تم استلام command_result ناجح
+  FAILURE      // فشل في التنفيذ
+  TIMEOUT      // انتهت المهلة
+}
+
+// ============================================================
+// HEARTBEATS
+// ============================================================
+model Heartbeat {
+  id               String   @id @default(cuid())
+  deviceId         String
+  receivedAt       DateTime @default(now())
+
+  batteryLevel     Int
+  isCharging       Boolean
+  chargingType     String?
+  networkType      String
+  isConnected      Boolean
+  wifiSignalLevel  Int?
+  mobileNetType    String?
+  storageFreeBytes BigInt
+  storageTotalBytes BigInt
+  usedPercent      Int
+  deviceUptimeMs   BigInt?
+  agentUptimeMs    BigInt?
+
+  device           Device   @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, receivedAt])
+  @@map("heartbeats")
+}
+
+// ============================================================
+// BACKUP FILES
+// ============================================================
+model BackupFile {
+  id              String   @id @default(cuid())
+  deviceId        String
+  commandId       String?
+
+  fileType        String                            // sms | whatsapp_db | logs
+  fileKey         String                            // مسار في filesystem أو S3 key
+  fileName        String
+  fileSizeBytes   BigInt
+  recordCount     Int?                              // عدد السجلات
+  storageProvider String   @default("local")        // local | s3
+  mimeType        String   @default("application/json")
+
+  createdAt       DateTime @default(now())
+  expiresAt       DateTime?
+
+  device          Device   @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, fileType])
+  @@map("backup_files")
+}
+
+// ============================================================
+// NOTIFICATION LOGS
+// ============================================================
+model NotificationLog {
+  id          String   @id @default(cuid())
+  deviceId    String
+
+  packageName String
+  appName     String
+  title       String?
+  text        String?
+  category    String?
+  postedAt    DateTime
+  receivedAt  DateTime @default(now())
+
+  device      Device   @relation(fields: [deviceId], references: [id])
+
+  @@index([deviceId, postedAt])
+  @@index([packageName])
+  @@map("notification_logs")
+}
+
+// ============================================================
+// ADMINS
+// ============================================================
+model Admin {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(OPERATOR)
+  isActive     Boolean   @default(true)
+
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  commands     Command[]
+
+  @@index([username])
+  @@map("admins")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR    // يرى الأجهزة، ينفذ أوامر غير حساسة
+  VIEWER      // قراءة فقط
+}
