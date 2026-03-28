@@ -4,6 +4,7 @@
 // =====================================================================
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
 
 // حل مشكلة BigInt في JSON.stringify
 (BigInt.prototype as any).toJSON = function () {
@@ -53,6 +54,30 @@ async function bootstrap(): Promise<void> {
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   await app.register(devicesRoutes, { prefix: '/api/v1/devices' });
   await app.register(commandsRoutes, { prefix: '/api/v1' });
+
+  // ---- Serve Dashboard ----
+  const dashboardDistPath = path.resolve(__dirname, '../../mdm-dashboard/dist');
+  if (fs.existsSync(dashboardDistPath)) {
+    await app.register(fastifyStatic, {
+      root: dashboardDistPath,
+      prefix: '/dashboard/',
+    });
+
+    app.setNotFoundHandler((request, reply) => {
+      if (request.url.startsWith('/dashboard')) {
+        reply.sendFile('index.html');
+      } else {
+        reply.status(404).send({ error: 'Not Found', message: 'Route not found' });
+      }
+    });
+
+    // Redirect /dashboard to /dashboard/
+    app.get('/dashboard', (request, reply) => {
+      reply.redirect('/dashboard/');
+    });
+  } else {
+    console.warn(`[Server] Dashboard dist folder not found at ${dashboardDistPath}. Run 'npm run build' in mdm-dashboard.`);
+  }
 
   // ---- تأكد من وجود مجلد الرفع ----
   const uploadDir = path.resolve(config.fileStoragePath);

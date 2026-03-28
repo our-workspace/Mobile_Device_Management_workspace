@@ -23,7 +23,7 @@ object ApiClient {
 
     private const val TAG = "ApiClient"
 
-    private const val BASE_URL = "http://192.168.1.34:3000"
+    private const val BASE_URL = "https://nonparadoxical-justin-nonmigratory.ngrok-free.dev"
     private const val ENROLLMENT_TOKEN = "MRyUnSbxOmMeDeSbJty7mS3Sj3yvBsh4wHl/31f6/gc="
 
     private val gson = Gson()

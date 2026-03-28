@@ -42,7 +42,9 @@ export const DeviceService = {
       return {
         deviceUid: existing.deviceUid,
         authToken,
-        wsUrl: `${config.isDev ? 'ws' : 'wss'}://${config.publicHost}:${config.port}${config.wsAgentPath}`,
+        wsUrl: config.publicUrl 
+          ? `${config.publicUrl}${config.wsAgentPath}`
+          : `${config.isDev ? 'ws' : 'wss'}://${config.publicHost}:${config.port}${config.wsAgentPath}`,
         heartbeatIntervalSeconds: config.heartbeatIntervalSeconds,
       };
     }
@@ -70,7 +72,9 @@ export const DeviceService = {
     return {
       deviceUid,
       authToken,
-      wsUrl: `${config.isDev ? 'ws' : 'wss'}://${config.publicHost}:${config.port}${config.wsAgentPath}`,
+      wsUrl: config.publicUrl 
+        ? `${config.publicUrl}${config.wsAgentPath}`
+        : `${config.isDev ? 'ws' : 'wss'}://${config.publicHost}:${config.port}${config.wsAgentPath}`,
       heartbeatIntervalSeconds: config.heartbeatIntervalSeconds,
     };
   },

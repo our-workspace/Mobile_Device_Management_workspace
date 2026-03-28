@@ -62,7 +62,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename="/dashboard">
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route

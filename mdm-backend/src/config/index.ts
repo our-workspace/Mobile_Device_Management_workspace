@@ -17,6 +17,7 @@ export const config = {
   // publicHost: العنوان الذي يُرجعه السيرفر للـ Agent في wsUrl
   // يجب أن يكون IP الشبكة المحلية وليس localhost
   publicHost: process.env.PUBLIC_HOST || 'localhost',
+  publicUrl: process.env.PUBLIC_URL || '',
   nodeEnv: process.env.NODE_ENV || 'development',
   isDev: process.env.NODE_ENV !== 'production',
 
