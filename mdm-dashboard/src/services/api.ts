@@ -52,6 +52,30 @@ export const devicesApi = {
 
   getNotifications: (deviceUid: string, limit = 50) =>
     api.get<{ notifications: any[] }>(`/devices/${deviceUid}/notifications?limit=${limit}`),
+
+  // جلب آخر heartbeat مخزّن في DB (يعمل سواء كان الجهاز online أو offline)
+  getLatestHeartbeat: (deviceUid: string) =>
+    api.get<{ heartbeat: any | null }>(`/devices/${deviceUid}/heartbeat/latest`),
+
+  // قائمة ملفات الـ SMS backup
+  getSmsBackups: (deviceUid: string) =>
+    api.get<{ files: any[] }>(`/devices/${deviceUid}/sms`),
+
+  // قراءة رسائل SMS من ملف معين
+  getSmsMessages: (
+    deviceUid: string,
+    backupFileId: string,
+    params: { page?: number; limit?: number; search?: string; contact?: string; threadId?: string; type?: string }
+  ) => {
+    const qs = new URLSearchParams();
+    if (params.page)     qs.set('page',     String(params.page));
+    if (params.limit)    qs.set('limit',    String(params.limit));
+    if (params.search)   qs.set('search',   params.search);
+    if (params.contact)  qs.set('contact',  params.contact);
+    if (params.threadId) qs.set('threadId', params.threadId);
+    if (params.type)     qs.set('type',     params.type);
+    return api.get<any>(`/devices/${deviceUid}/sms/${backupFileId}/messages?${qs.toString()}`);
+  },
 };
 
 // ---- Commands ----

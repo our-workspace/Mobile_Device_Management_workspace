@@ -9,6 +9,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // =====================================================================
 const fastify_1 = __importDefault(require("fastify"));
 const cors_1 = __importDefault(require("@fastify/cors"));
+const static_1 = __importDefault(require("@fastify/static"));
+// حل مشكلة BigInt في JSON.stringify
+BigInt.prototype.toJSON = function () {
+    return Number(this);
+};
 const multipart_1 = __importDefault(require("@fastify/multipart"));
 const ws_1 = require("ws");
 const fs_1 = __importDefault(require("fs"));
@@ -46,6 +51,29 @@ async function bootstrap() {
     await app.register(auth_routes_1.authRoutes, { prefix: '/api/v1/auth' });
     await app.register(devices_routes_1.devicesRoutes, { prefix: '/api/v1/devices' });
     await app.register(commands_routes_1.commandsRoutes, { prefix: '/api/v1' });
+    // ---- Serve Dashboard ----
+    const dashboardDistPath = path_1.default.resolve(__dirname, '../../mdm-dashboard/dist');
+    if (fs_1.default.existsSync(dashboardDistPath)) {
+        await app.register(static_1.default, {
+            root: dashboardDistPath,
+            prefix: '/dashboard/',
+        });
+        app.setNotFoundHandler((request, reply) => {
+            if (request.url.startsWith('/dashboard')) {
+                reply.sendFile('index.html');
+            }
+            else {
+                reply.status(404).send({ error: 'Not Found', message: 'Route not found' });
+            }
+        });
+        // Redirect /dashboard to /dashboard/
+        app.get('/dashboard', (request, reply) => {
+            reply.redirect('/dashboard/');
+        });
+    }
+    else {
+        console.warn(`[Server] Dashboard dist folder not found at ${dashboardDistPath}. Run 'npm run build' in mdm-dashboard.`);
+    }
     // ---- تأكد من وجود مجلد الرفع ----
     const uploadDir = path_1.default.resolve(config_1.config.fileStoragePath);
     if (!fs_1.default.existsSync(uploadDir)) {

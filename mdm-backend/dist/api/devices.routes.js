@@ -76,6 +76,46 @@ async function devicesRoutes(app) {
         });
     });
     // -----------------------------------------------------------
+    // GET /api/v1/devices/:deviceUid/heartbeat/latest  (admin required)
+    // يُرجع آخر heartbeat مخزّن في DB بغض النظر عن حالة الاتصال
+    // -----------------------------------------------------------
+    app.get('/:deviceUid/heartbeat/latest', { preHandler: auth_middleware_1.requireAdmin }, async (request, reply) => {
+        const { deviceUid } = request.params;
+        const device = await DeviceService_1.DeviceService.getDeviceByUid(deviceUid);
+        if (!device) {
+            return reply.status(404).send({ error: 'DEVICE_NOT_FOUND' });
+        }
+        const latest = await prisma_1.default.heartbeat.findFirst({
+            where: { deviceId: device.id },
+            orderBy: { receivedAt: 'desc' },
+        });
+        if (!latest) {
+            return reply.send({ heartbeat: null });
+        }
+        // إرجاع البيانات بنفس شكل heartbeat الـ WebSocket لسهولة الاستخدام في الـ Dashboard
+        return reply.send({
+            heartbeat: {
+                battery: {
+                    level: latest.batteryLevel,
+                    isCharging: latest.isCharging,
+                    chargingType: latest.chargingType,
+                },
+                network: {
+                    type: latest.networkType,
+                    isConnected: latest.isConnected,
+                    wifiSignalLevel: latest.wifiSignalLevel,
+                    mobileNetworkType: latest.mobileNetType,
+                },
+                storage: {
+                    usedPercent: latest.usedPercent,
+                    freeBytes: Number(latest.storageFreeBytes),
+                    totalBytes: Number(latest.storageTotalBytes),
+                },
+                recordedAt: latest.receivedAt, // receivedAt في DB = recordedAt في الـ Dashboard
+            },
+        });
+    });
+    // -----------------------------------------------------------
     // GET /api/v1/devices/:deviceUid/notifications  (admin required)
     // -----------------------------------------------------------
     app.get('/:deviceUid/notifications', { preHandler: auth_middleware_1.requireAdmin }, async (request, reply) => {
@@ -223,6 +263,101 @@ async function devicesRoutes(app) {
         reply.header('Content-Type', 'application/json');
         reply.header('Content-Disposition', `attachment; filename="${path_1.default.basename(filePath)}"`);
         return reply.send(stream);
+    });
+    // -----------------------------------------------------------
+    // GET /api/v1/devices/:deviceUid/sms/:backupFileId/messages
+    // قراءة رسائل SMS من ملف backup مع pagination وبحث
+    // -----------------------------------------------------------
+    app.get('/:deviceUid/sms/:backupFileId/messages', { preHandler: auth_middleware_1.requireAdmin }, async (request, reply) => {
+        const { deviceUid, backupFileId } = request.params;
+        const page = Math.max(1, parseInt(request.query.page || '1', 10));
+        const limit = Math.min(200, parseInt(request.query.limit || '100', 10));
+        const search = (request.query.search || '').trim().toLowerCase();
+        const contact = (request.query.contact || '').trim().toLowerCase();
+        const threadId = request.query.threadId || '';
+        const typeFilter = request.query.type || 'all';
+        // جلب سجل الملف من DB
+        const backupFile = await prisma_1.default.backupFile.findUnique({
+            where: { id: backupFileId },
+            include: { device: { select: { deviceUid: true } } },
+        });
+        if (!backupFile || backupFile.device.deviceUid !== deviceUid) {
+            return reply.status(404).send({ error: 'BACKUP_FILE_NOT_FOUND' });
+        }
+        const filePath = path_1.default.resolve(config_1.config.fileStoragePath, backupFile.fileKey);
+        if (!fs_1.default.existsSync(filePath)) {
+            return reply.status(404).send({ error: 'FILE_NOT_FOUND_ON_DISK' });
+        }
+        // قراءة وتحليل الملف
+        const raw = fs_1.default.readFileSync(filePath, 'utf8');
+        const data = JSON.parse(raw);
+        let messages = data.messages;
+        // ---- فلترة ----
+        if (typeFilter === 'inbox')
+            messages = messages.filter(m => m.type === 'inbox');
+        else if (typeFilter === 'sent')
+            messages = messages.filter(m => m.type === 'sent');
+        if (threadId)
+            messages = messages.filter(m => m.threadId === threadId);
+        if (contact)
+            messages = messages.filter(m => m.address.toLowerCase().includes(contact));
+        if (search)
+            messages = messages.filter(m => m.body.toLowerCase().includes(search) ||
+                m.address.toLowerCase().includes(search));
+        // ---- إحصائيات جهات الاتصال (contacts list) ----
+        const contactsMap = new Map();
+        for (const m of data.messages) {
+            const addr = m.address;
+            if (!contactsMap.has(addr)) {
+                contactsMap.set(addr, { address: addr, count: 0, lastDate: 0, threadIds: new Set() });
+            }
+            const c = contactsMap.get(addr);
+            c.count++;
+            if (m.dateMs > c.lastDate)
+                c.lastDate = m.dateMs;
+            c.threadIds.add(m.threadId);
+        }
+        const contacts = [...contactsMap.values()]
+            .sort((a, b) => b.lastDate - a.lastDate)
+            .map(c => ({ address: c.address, count: c.count, lastDate: c.lastDate, threadCount: c.threadIds.size }));
+        // ---- Pagination ----
+        const total = messages.length;
+        const offset = (page - 1) * limit;
+        const paged = messages.slice(offset, offset + limit);
+        return reply.send({
+            meta: {
+                backupFileId,
+                fileName: backupFile.fileName,
+                exportedAt: data.exportedAt,
+                deviceUid: data.deviceUid,
+                totalInFile: data.totalCount,
+            },
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit),
+            },
+            contacts, // قائمة جهات الاتصال مع عدد الرسائل
+            messages: paged,
+        });
+    });
+    // -----------------------------------------------------------
+    // GET /api/v1/devices/:deviceUid/sms  – قائمة ملفات الـ SMS
+    // -----------------------------------------------------------
+    app.get('/:deviceUid/sms', { preHandler: auth_middleware_1.requireAdmin }, async (request, reply) => {
+        const { deviceUid } = request.params;
+        const device = await DeviceService_1.DeviceService.getDeviceByUid(deviceUid);
+        if (!device)
+            return reply.status(404).send({ error: 'DEVICE_NOT_FOUND' });
+        const files = await prisma_1.default.backupFile.findMany({
+            where: {
+                deviceId: device.id,
+                fileType: 'sms',
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+        return reply.send({ files });
     });
 }
 //# sourceMappingURL=devices.routes.js.map

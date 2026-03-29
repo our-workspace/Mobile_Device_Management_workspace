@@ -189,6 +189,7 @@ async function handleCommandResult(ws, message) {
     ConnectionRegistry_2.ConnectionRegistry.broadcastToDashboards({
         event: 'command_result',
         commandId,
+        commandType: message.payload.commandType,
         status,
         result,
         error,

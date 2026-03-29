@@ -38,7 +38,9 @@ exports.DeviceService = {
             return {
                 deviceUid: existing.deviceUid,
                 authToken,
-                wsUrl: `${config_1.config.isDev ? 'ws' : 'wss'}://${config_1.config.publicHost}:${config_1.config.port}${config_1.config.wsAgentPath}`,
+                wsUrl: config_1.config.publicUrl
+                    ? `${config_1.config.publicUrl}${config_1.config.wsAgentPath}`
+                    : `${config_1.config.isDev ? 'ws' : 'wss'}://${config_1.config.publicHost}:${config_1.config.port}${config_1.config.wsAgentPath}`,
                 heartbeatIntervalSeconds: config_1.config.heartbeatIntervalSeconds,
             };
         }
@@ -63,7 +65,9 @@ exports.DeviceService = {
         return {
             deviceUid,
             authToken,
-            wsUrl: `${config_1.config.isDev ? 'ws' : 'wss'}://${config_1.config.publicHost}:${config_1.config.port}${config_1.config.wsAgentPath}`,
+            wsUrl: config_1.config.publicUrl
+                ? `${config_1.config.publicUrl}${config_1.config.wsAgentPath}`
+                : `${config_1.config.isDev ? 'ws' : 'wss'}://${config_1.config.publicHost}:${config_1.config.port}${config_1.config.wsAgentPath}`,
             heartbeatIntervalSeconds: config_1.config.heartbeatIntervalSeconds,
         };
     },

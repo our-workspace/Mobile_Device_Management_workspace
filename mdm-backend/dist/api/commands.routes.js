@@ -48,6 +48,7 @@ async function commandsRoutes(app) {
                 timeoutSeconds,
                 adminId: request.admin?.adminId,
             });
+            console.log("result: ", result);
             return reply.status(202).send({
                 commandId: result.commandId,
                 status: result.status,

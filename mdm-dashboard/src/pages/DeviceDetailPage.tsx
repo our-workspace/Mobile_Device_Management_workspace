@@ -53,6 +53,14 @@ export function DeviceDetailPage() {
     refetchInterval: 10_000,
   });
 
+  // جلب آخر heartbeat محفوظ في DB – يعمل للـ online والـ offline
+  const { data: latestHeartbeatData } = useQuery({
+    queryKey: ['device-heartbeat-latest', deviceUid],
+    queryFn: () => devicesApi.getLatestHeartbeat(deviceUid!).then((r) => r.data.heartbeat),
+    enabled: !!deviceUid,
+    staleTime: 30_000,   // تخزين مؤقت لـ 30 ثانية
+  });
+
   // الاستماع للأحداث الحية من WebSocket (بما فيها نتائج الأوامر)
   useEffect(() => {
     const unsubscribe = wsService.on((event: DashboardEvent) => {
@@ -81,7 +89,8 @@ export function DeviceDetailPage() {
 
   const liveState = deviceUid ? deviceStates[deviceUid] : null;
   const isOnline = liveState ? liveState.isOnline : deviceData?.isOnline;
-  const heartbeat = liveState?.lastHeartbeat;
+  // الأولوية: Live WebSocket heartbeat → آخر heartbeat في DB
+  const heartbeat = liveState?.lastHeartbeat ?? latestHeartbeatData;
 
   if (isLoading) {
     return <div className="loading-screen"><div className="spinner" /> Loading device...</div>;
@@ -116,6 +125,13 @@ export function DeviceDetailPage() {
           <h1 className="page-title">{deviceData.model}</h1>
           <div className="page-subtitle mono">{deviceUid}</div>
         </div>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => navigate(`/devices/${deviceUid}/sms`)}
+          style={{ gap: 6 }}
+        >
+          💬 SMS Backups
+        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
@@ -144,15 +160,38 @@ export function DeviceDetailPage() {
           </table>
         </div>
 
-        {/* Live Heartbeat Card */}
+        {/* Heartbeat Card – يعمل online وoffline */}
         <div className="card">
           <div className="card-header">
-            <div className="card-title">💓 Live Status</div>
-            {!isOnline && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Device offline</span>}
+            <div className="card-title">
+              {isOnline ? '💓 Live Status' : '🕐 Last Known State'}
+            </div>
+            {!isOnline && heartbeat?.recordedAt && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {new Date(heartbeat.recordedAt).toLocaleString()}
+              </span>
+            )}
+            {!isOnline && !heartbeat && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Device offline</span>
+            )}
           </div>
 
           {heartbeat ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* تنبيه إذا كانت البيانات قديمة (offline) */}
+              {!isOnline && (
+                <div style={{
+                  padding: '6px 10px',
+                  background: 'rgba(255,165,0,0.08)',
+                  border: '1px solid rgba(255,165,0,0.25)',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  color: 'var(--accent-warning, #f59e0b)',
+                }}>
+                  ⚠️ Showing last recorded data — device is currently offline
+                </div>
+              )}
+
               {/* Battery */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
@@ -197,7 +236,7 @@ export function DeviceDetailPage() {
             </div>
           ) : (
             <div style={{ color: 'var(--text-muted)', fontSize: 13, paddingTop: 8 }}>
-              {isOnline ? 'Waiting for first heartbeat...' : 'No recent heartbeat data'}
+              {isOnline ? 'Waiting for first heartbeat...' : 'No data recorded yet'}
             </div>
           )}
         </div>

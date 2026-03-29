@@ -2,6 +2,7 @@ export declare const config: {
     readonly port: number;
     readonly host: string;
     readonly publicHost: string;
+    readonly publicUrl: string;
     readonly nodeEnv: string;
     readonly isDev: boolean;
     readonly databaseUrl: string;

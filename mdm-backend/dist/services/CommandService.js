@@ -24,7 +24,7 @@ exports.CommandService = {
                 deviceId: device.id,
                 adminId: adminId ?? null,
                 commandType,
-                params,
+                params: params,
                 priority,
                 timeoutSeconds,
                 status: 'PENDING',
@@ -103,7 +103,7 @@ exports.CommandService = {
             where: { commandId },
             data: {
                 status: status === 'SUCCESS' ? 'SUCCESS' : 'FAILURE',
-                result: result ?? undefined,
+                result: (result ?? undefined),
                 errorCode: errorCode ?? null,
                 errorMessage: errorMessage ?? null,
                 completedAt: new Date(),

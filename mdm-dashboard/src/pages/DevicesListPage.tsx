@@ -138,8 +138,8 @@ function DeviceCard({
         <StatusBadge isOnline={device.isOnline} />
       </div>
 
-      {/* Live Heartbeat data */}
-      {heartbeat && device.isOnline && (
+      {/* Heartbeat data — يظهر للـ online والـ offline (آخر بيانات معروفة) */}
+      {heartbeat && (
         <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
           <MiniStat
             icon="🔋"
@@ -149,7 +149,7 @@ function DeviceCard({
           <MiniStat
             icon={heartbeat.network.type === 'WIFI' ? '📶' : '📡'}
             value={heartbeat.network.type}
-            color="var(--accent-primary)"
+            color={device.isOnline ? 'var(--accent-primary)' : 'var(--text-muted)'}
           />
           <MiniStat
             icon="💾"

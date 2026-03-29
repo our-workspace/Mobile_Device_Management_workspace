@@ -41,6 +41,6 @@ export function generateAdminToken(adminId: string, username: string, role: stri
   return jwt.sign(
     { adminId, username, role },
     config.jwtSecret,
-    { expiresIn: config.jwtAdminExpiry as string }
+    { expiresIn: config.jwtAdminExpiry as any }
   );
 }

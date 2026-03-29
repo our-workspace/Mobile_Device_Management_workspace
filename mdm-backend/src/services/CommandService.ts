@@ -43,7 +43,7 @@ export const CommandService = {
         deviceId: device.id,
         adminId: adminId ?? null,
         commandType,
-        params,
+        params: params as any,
         priority,
         timeoutSeconds,
         status: 'PENDING',
@@ -139,7 +139,7 @@ export const CommandService = {
       where: { commandId },
       data: {
         status: status === 'SUCCESS' ? 'SUCCESS' : 'FAILURE',
-        result: result ?? undefined,
+        result: (result ?? undefined) as any,
         errorCode: errorCode ?? null,
         errorMessage: errorMessage ?? null,
         completedAt: new Date(),
