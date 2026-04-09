@@ -174,6 +174,41 @@ npm install
 echo -e "${YELLOW}Generating Prisma Client...${NC}"
 npx prisma generate
 
+# Fix Prisma engines for ARM64
+echo -e "${YELLOW}Fixing Prisma engines for ARM64...${NC}"
+PRISMA_ENGINES="$BACKEND_DIR/node_modules/@prisma/engines"
+PRISMA_CLIENT="$BACKEND_DIR/node_modules/.prisma/client"
+SCHEMA_ENGINE_URL="https://binaries.prisma.sh/all_commits/605197351a3c8bdd595af2d2a9bc3025bca48ea2/debian-arm64-openssl-3.0.x/schema-engine.gz"
+QUERY_ENGINE_URL="https://binaries.prisma.sh/all_commits/605197351a3c8bdd595af2d2a9bc3025bca48ea2/debian-arm64-openssl-3.0.x/libquery_engine.so.node"
+
+mkdir -p "$PRISMA_ENGINES" "$PRISMA_CLIENT"
+cd /tmp
+
+# Download schema engine for migrations
+if [ ! -f "$PRISMA_ENGINES/schema-engine-debian-openssl-3.0.x" ]; then
+    echo "Downloading schema-engine for ARM64..."
+    curl -L -o schema-engine.gz "$SCHEMA_ENGINE_URL" 2>/dev/null
+    gunzip -f schema-engine.gz 2>/dev/null
+    chmod +x schema-engine
+    mv schema-engine "$PRISMA_ENGINES/schema-engine-debian-openssl-3.0.x"
+    cd "$PRISMA_ENGINES"
+    ln -sf schema-engine-debian-openssl-3.0.x schema-engine-debian-openssl-1.1.x 2>/dev/null || true
+    echo -e "${GREEN}✓ Schema engine fixed${NC}"
+fi
+
+# Download query engine
+if [ ! -f "$PRISMA_CLIENT/libquery_engine.so.node" ]; then
+    echo "Downloading query engine for ARM64..."
+    curl -L -o libquery_engine.so.node "$QUERY_ENGINE_URL" 2>/dev/null
+    mv libquery_engine.so.node "$PRISMA_CLIENT/"
+    cd "$PRISMA_CLIENT"
+    ln -sf libquery_engine.so.node libquery_engine-debian-openssl-1.1.x.so.node 2>/dev/null || true
+    ln -sf libquery_engine.so.node libquery_engine-debian-openssl-3.0.x.so.node 2>/dev/null || true
+    echo -e "${GREEN}✓ Query engine fixed${NC}"
+fi
+
+cd "$BACKEND_DIR"
+
 echo -e "${YELLOW}Applying migrations...${NC}"
 npx prisma migrate deploy || true
 
