@@ -1,3 +1,6 @@
+/* External imports must be first */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
 /* Cairo Font Faces */
 @font-face {
   font-family: 'Cairo';
@@ -47,9 +50,6 @@
   font-weight: 900;
   src: url('/fonts/Cairo-Black.ttf') format('truetype');
 }
-
-/* JetBrains Mono for code */
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
 /* =====================================================
    CSS Variables – Design System
