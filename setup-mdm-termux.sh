@@ -1,6 +1,6 @@
 #!/bin/bash
 # setup-mdm-termux.sh
-# سكريبت إعداد MDM Backend على Ubuntu ARM64 داخل Termux Proot
+# MDM Backend Setup Script for Ubuntu ARM64 on Termux Proot
 
 set -e
 
@@ -22,75 +22,135 @@ DB_USER="postgres"
 DB_PASS="postgres123"
 NGROK_TOKEN="2PEwUttOJFiRgrbDzJE6VjvUjSQ_5fap6y5rNuqY58VUwhN1Z"
 
-echo -e "${YELLOW}[1/8] تحديث النظام...${NC}"
-apt-get update && apt-get upgrade -y
+# ===== Check Functions =====
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
 
-echo -e "${YELLOW}[2/8] تثبيت الأدوات الأساسية...${NC}"
-apt-get install -y \
-    curl \
-    wget \
-    git \
-    postgresql \
-    postgresql-contrib \
-    nodejs \
-    npm \
-    redis-server \
-    openssl \
-    libssl-dev \
-    build-essential \
-    sqlite3 \
-    net-tools
+package_installed() {
+    dpkg -l "$1" 2>/dev/null | grep -q "^ii"
+}
 
-echo -e "${YELLOW}[3/8] تثبيت ngrok...${NC}"
-# تحميل ngrok للـ ARM64
-cd /tmp
-wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz
-tar -xzf ngrok-v3-stable-linux-arm64.tgz
-mv ngrok /usr/local/bin/
-rm ngrok-v3-stable-linux-arm64.tgz
+echo -e "${YELLOW}[1/8] Updating system...${NC}"
+apt-get update
 
-# إعداد ngrok
+echo -e "${YELLOW}[2/8] Checking tools...${NC}"
+
+# Required tools list
+TOOLS_TO_INSTALL=""
+
+# Check each tool
+if ! command_exists curl; then
+    TOOLS_TO_INSTALL="$TOOLS_TO_INSTALL curl"
+else
+    echo -e "${GREEN}✓ curl found (v$(curl --version | head -1 | awk '{print $2}'))${NC}"
+fi
+
+if ! command_exists wget; then
+    TOOLS_TO_INSTALL="$TOOLS_TO_INSTALL wget"
+else
+    echo -e "${GREEN}✓ wget found (v$(wget --version | head -1 | awk '{print $3}'))${NC}"
+fi
+
+if ! command_exists git; then
+    TOOLS_TO_INSTALL="$TOOLS_TO_INSTALL git"
+else
+    echo -e "${GREEN}✓ git found ($(git --version | awk '{print $3}'))${NC}"
+fi
+
+if ! command_exists node; then
+    TOOLS_TO_INSTALL="$TOOLS_TO_INSTALL nodejs npm"
+else
+    echo -e "${GREEN}✓ Node.js found ($(node --version))${NC}"
+fi
+
+if ! command_exists psql; then
+    TOOLS_TO_INSTALL="$TOOLS_TO_INSTALL postgresql postgresql-contrib"
+else
+    echo -e "${GREEN}✓ PostgreSQL found ($(psql --version | awk '{print $3}'))${NC}"
+fi
+
+if ! command_exists redis-server; then
+    TOOLS_TO_INSTALL="$TOOLS_TO_INSTALL redis-server"
+else
+    echo -e "${GREEN}✓ Redis found${NC}"
+fi
+
+if ! package_installed openssl; then
+    TOOLS_TO_INSTALL="$TOOLS_TO_INSTALL openssl libssl-dev"
+else
+    echo -e "${GREEN}✓ OpenSSL found${NC}"
+fi
+
+if ! package_installed build-essential; then
+    TOOLS_TO_INSTALL="$TOOLS_TO_INSTALL build-essential"
+else
+    echo -e "${GREEN}✓ build-essential found${NC}"
+fi
+
+# Install only missing tools
+if [ -n "$TOOLS_TO_INSTALL" ]; then
+    echo -e "${YELLOW}📦 Installing: $TOOLS_TO_INSTALL${NC}"
+    apt-get install -y $TOOLS_TO_INSTALL net-tools sqlite3
+else
+    echo -e "${GREEN}✓ All tools are present!${NC}"
+fi
+
+echo -e "${YELLOW}[3/8] Checking ngrok...${NC}"
+if command_exists ngrok; then
+    echo -e "${GREEN}✓ ngrok found${NC}"
+else
+    echo -e "${YELLOW}📥 Installing ngrok...${NC}"
+    cd /tmp
+    wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.tgz
+    tar -xzf ngrok-v3-stable-linux-arm64.tgz
+    mv ngrok /usr/local/bin/
+    rm -f ngrok-v3-stable-linux-arm64.tgz
+    echo -e "${GREEN}✓ ngrok installed${NC}"
+fi
+
+# Setup ngrok
 mkdir -p "$HOME/.config/ngrok"
 echo "authtoken: $NGROK_TOKEN" > "$HOME/.config/ngrok/ngrok.yml"
-echo -e "${GREEN}✓ ngrok تم تثبيته${NC}"
+echo -e "${GREEN}✓ ngrok token configured${NC}"
 
-echo -e "${YELLOW}[4/8] إعداد PostgreSQL...${NC}"
-# بدء خدمة PostgreSQL
-service postgresql start || pg_ctlcluster 14 main start || true
+echo -e "${YELLOW}[4/8] Setting up PostgreSQL...${NC}"
+# Start PostgreSQL service
+service postgresql start 2>/dev/null || pg_ctlcluster 14 main start 2>/dev/null || echo -e "${YELLOW}⚠ PostgreSQL may already be running${NC}"
 
-# انتظار بدء الخدمة
+# Wait for service to start
 sleep 2
 
-# إنشاء المستخدم وقاعدة البيانات
+# Create user and database
 su - postgres -c "psql -c \"CREATE USER $DB_USER WITH PASSWORD '$DB_PASS';\"" 2>/dev/null || true
 su - postgres -c "psql -c \"ALTER USER $DB_USER WITH SUPERUSER;\"" 2>/dev/null || true
 su - postgres -c "psql -c \"CREATE DATABASE $DB_NAME OWNER $DB_USER;\"" 2>/dev/null || true
 su - postgres -c "psql -c \"ALTER DATABASE $DB_NAME SET timezone TO 'UTC';\"" 2>/dev/null || true
 
-echo -e "${GREEN}✓ قاعدة البيانات $DB_NAME تم إنشاؤها${NC}"
+echo -e "${GREEN}✓ Database $DB_NAME created${NC}"
 
-echo -e "${YELLOW}[5/8] إعداد Redis...${NC}"
-# بدء Redis
+echo -e "${YELLOW}[5/8] Setting up Redis...${NC}"
+# Start Redis
 redis-server --daemonize yes --port 6379 || true
-echo -e "${GREEN}✓ Redis يعمل${NC}"
+echo -e "${GREEN}✓ Redis running${NC}"
 
-echo -e "${YELLOW}[6/8] استعادة النسخة الاحتياطية...${NC}"
+echo -e "${YELLOW}[6/8] Restoring backup...${NC}"
 BACKUP_FILE="$PROJECT_DIR/mdm_db.backup"
 if [ -f "$BACKUP_FILE" ]; then
-    echo "جاري استعادة: $BACKUP_FILE"
+    echo "Restoring: $BACKUP_FILE"
     su - postgres -c "pg_restore --clean --if-exists -d $DB_NAME '$BACKUP_FILE'" 2>/dev/null || \
     su - postgres -c "psql $DB_NAME < '$BACKUP_FILE'" 2>/dev/null || \
-    echo -e "${YELLOW}⚠ فشل استعادة الـ backup (قد يكون فارغاً أو تالفاً)${NC}"
-    echo -e "${GREEN}✓ سيتم إنشاء الجداول تلقائياً عند أول تشغيل${NC}"
+    echo -e "${YELLOW}⚠ Backup restore failed (may be empty or corrupted)${NC}"
+    echo -e "${GREEN}✓ Tables will be created automatically on first run${NC}"
 else
-    echo -e "${YELLOW}⚠ لم يتم العثور على $BACKUP_FILE${NC}"
-    echo "سيتم إنشاء قاعدة بيانات جديدة"
+    echo -e "${YELLOW}⚠ $BACKUP_FILE not found${NC}"
+    echo "A new database will be created"
 fi
 
-echo -e "${YELLOW}[7/8] إعداد مشروع Backend...${NC}"
+echo -e "${YELLOW}[7/8] Setting up Backend project...${NC}"
 cd "$BACKEND_DIR"
 
-# إنشاء ملف .env
+# Create .env file
 cat > .env << EOF
 DATABASE_URL=postgresql://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME
 REDIS_URL=redis://localhost:6379
@@ -100,41 +160,41 @@ PORT=3000
 FILE_STORAGE_PATH=./uploads
 EOF
 
-echo -e "${GREEN}✓ ملف .env تم إنشاؤه${NC}"
+echo -e "${GREEN}✓ .env file created${NC}"
 
-# حذف node_modules القديمة إن وجدت
+# Remove old node_modules if exists
 if [ -d "node_modules" ]; then
-    echo "حذف node_modules القديمة..."
+    echo "Removing old node_modules..."
     rm -rf node_modules package-lock.json
 fi
 
-echo -e "${YELLOW}[8/8] تثبيت dependencies...${NC}"
+echo -e "${YELLOW}[8/8] Installing dependencies...${NC}"
 npm install
 
-echo -e "${YELLOW}توليد Prisma Client...${NC}"
+echo -e "${YELLOW}Generating Prisma Client...${NC}"
 npx prisma generate
 
-echo -e "${YELLOW}تطبيق migrations...${NC}"
+echo -e "${YELLOW}Applying migrations...${NC}"
 npx prisma migrate deploy || true
 
 echo ""
 echo "=========================================="
-echo -e "${GREEN}✓ تم الإعداد بنجاح!${NC}"
+echo -e "${GREEN}✓ Setup completed successfully!${NC}"
 echo "=========================================="
 echo ""
-echo "📁 المسار: $BACKEND_DIR"
-echo "🗄️  قاعدة البيانات: $DB_NAME"
-echo "🔧 ngrok token: مُعَّرف"
+echo "📁 Path: $BACKEND_DIR"
+echo "🗄️  Database: $DB_NAME"
+echo "🔧 ngrok token: configured"
 echo ""
-echo "🚀 لتشغيل المشروع:"
+echo "🚀 To start the project:"
 echo "   cd $BACKEND_DIR"
 echo "   npm run dev"
 echo ""
-echo "🌐 لتشغيل ngrok (في terminal آخر):"
+echo "🌐 To run ngrok (in another terminal):"
 echo "   ngrok http 3000"
 echo ""
-echo "📋 ملاحظات:"
-echo "   - PostgreSQL يعمل على port 5432"
-echo "   - Redis يعمل على port 6379"
-echo "   - Backend يعمل على port 3000"
+echo "📋 Notes:"
+echo "   - PostgreSQL running on port 5432"
+echo "   - Redis running on port 6379"
+echo "   - Backend running on port 3000"
 echo ""
