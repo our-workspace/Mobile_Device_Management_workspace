@@ -1,0 +1,71 @@
+// --- Start of New Policies ---
+
+// Policy: Create an event when a compression tool is launched.
+// This rule checks if the process path matches any of the
+// patterns defined in the 'compressionTools' constant list.
+"createCompressionToolProcessEvent": [
+	{
+		"condition": {
+			"$operation": "imatch",
+			"pattern": "@const.compressionTools",
+			"args": [ "@event.process.imageFile.uniquePath" ]
+		},
+		"createEvent": {
+			"eventType": "MLE_COMPRESSION_TOOL_PROCESS_CREATE",
+			"destination": "IN_OUT",
+			"data": [
+				{
+					"name": "baseType",
+					"value": "MLE_COMPRESSION_TOOL_PROCESS_CREATE"
+				}
+			]
+		}
+	}
+],
+
+// Policy: Create an event for powershell or cmd processes not launched by explorer.exe.
+// This rule is designed to detect suspicious activity. It has two main conditions:
+// 1. The parent process is NOT explorer.exe.
+// 2. The process itself is either powershell.exe OR cmd.exe.
+// This helps to identify shell processes started from unusual sources, which could be malicious.
+"createDangerousShellEvent": [
+	{
+		"condition": {
+			"$operation": "and",
+			"args": [
+				{
+					"$operation": "!imatch",
+					"pattern": "*\\explorer.exe",
+					"args": [ "@event.process.parent.imageFile.uniquePath" ]
+				},
+				{
+					"$operation": "or",
+					"args": [
+						{
+							"$operation": "imatch",
+							"pattern": "*\\powershell.exe",
+							"args": [ "@event.process.imageFile.uniquePath" ]
+						},
+						{
+							"$operation": "imatch",
+							"pattern": "*\\cmd.exe",
+							"args": [ "@event.process.imageFile.uniquePath" ]
+						}
+					]
+				}
+			]
+		},
+		"createEvent": {
+			"eventType": "MLE_UNEXPECTED_SHELL_PROCESS",
+			"destination": "IN_OUT",
+			"data": [
+				{
+					"name": "baseType",
+					"value": "MLE_UNEXPECTED_SHELL_PROCESS"
+				}
+			]
+		}
+	}
+],
+
+// --- End of New Policies ---
