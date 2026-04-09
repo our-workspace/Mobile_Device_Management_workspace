@@ -18,6 +18,7 @@ import path from 'path';
 import { config } from './config';
 import prisma from './db/prisma';
 import { getRedis } from './db/redis';
+import { initializeDatabase } from './db/init-db';
 import { AuthService } from './services/AuthService';
 
 import { createAgentGateway } from './websocket/AgentGateway';
@@ -55,6 +56,9 @@ async function bootstrap(): Promise<void> {
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   await app.register(devicesRoutes, { prefix: '/api/v1/devices' });
   await app.register(commandsRoutes, { prefix: '/api/v1' });
+
+  // ---- Initialize Database ----
+  await initializeDatabase();
 
   // ---- Serve Dashboard ----
   const dashboardDistPath = path.resolve(__dirname, '../../mdm-dashboard/dist');
@@ -126,7 +130,7 @@ async function bootstrap(): Promise<void> {
   const shutdown = async (signal: string) => {
     console.log(`\n[Server] ${signal} received. Shutting down...`);
     await app.close();
-    await prisma.$disconnect();
+    await prisma.$disconnect(); // This now closes the pg pool
     const redis = getRedis();
     await redis.quit();
     console.log('[Server] Graceful shutdown complete.');
