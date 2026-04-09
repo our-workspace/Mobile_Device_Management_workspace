@@ -120,17 +120,74 @@ async function devicesRoutes(app) {
     // -----------------------------------------------------------
     app.get('/:deviceUid/notifications', { preHandler: auth_middleware_1.requireAdmin }, async (request, reply) => {
         const { deviceUid } = request.params;
-        const limit = parseInt(request.query.limit || '50', 10);
+        const page = Math.max(1, parseInt(request.query.page || '1', 10));
+        const limit = Math.min(200, parseInt(request.query.limit || '50', 10));
         const device = await DeviceService_1.DeviceService.getDeviceByUid(deviceUid);
         if (!device) {
             return reply.status(404).send({ error: 'DEVICE_NOT_FOUND' });
         }
+        // Get total count for pagination
+        const total = await prisma_1.default.notificationLog.count({
+            where: { deviceId: device.id },
+        });
+        // Get paginated results
         const notifications = await prisma_1.default.notificationLog.findMany({
             where: { deviceId: device.id },
             orderBy: { postedAt: 'desc' },
+            skip: (page - 1) * limit,
             take: limit,
         });
-        return reply.send({ notifications, total: notifications.length });
+        return reply.send({
+            notifications,
+            total,
+            page,
+            limit,
+            pages: Math.ceil(total / limit),
+        });
+    });
+    // -----------------------------------------------------------
+    // GET /api/v1/devices/:deviceUid/notifications/all  (admin required)
+    // For chat view - returns ALL notifications grouped by app
+    // -----------------------------------------------------------
+    app.get('/:deviceUid/notifications/all', { preHandler: auth_middleware_1.requireAdmin }, async (request, reply) => {
+        const { deviceUid } = request.params;
+        const device = await DeviceService_1.DeviceService.getDeviceByUid(deviceUid);
+        if (!device) {
+            return reply.status(404).send({ error: 'DEVICE_NOT_FOUND' });
+        }
+        // Get ALL notifications (no pagination for chat view)
+        const notifications = await prisma_1.default.notificationLog.findMany({
+            where: { deviceId: device.id },
+            orderBy: { postedAt: 'asc' }, // Oldest first for chat view
+        });
+        // Group by packageName
+        const grouped = notifications.reduce((acc, n) => {
+            const pkg = n.packageName || 'unknown';
+            if (!acc[pkg]) {
+                acc[pkg] = {
+                    packageName: pkg,
+                    appName: n.appName || pkg,
+                    count: 0,
+                    notifications: [],
+                };
+            }
+            acc[pkg].count++;
+            acc[pkg].notifications.push({
+                id: n.id,
+                title: n.title,
+                text: n.text,
+                category: n.category,
+                postedAt: n.postedAt,
+                receivedAt: n.receivedAt,
+            });
+            return acc;
+        }, {});
+        // Convert to array and sort by count (most notifications first)
+        const apps = Object.values(grouped).sort((a, b) => b.count - a.count);
+        return reply.send({
+            total: notifications.length,
+            apps,
+        });
     });
     // -----------------------------------------------------------
     // GET /api/v1/devices/:deviceUid/files  (admin required)

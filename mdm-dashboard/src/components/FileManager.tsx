@@ -19,6 +19,7 @@ interface FileManagerProps {
 export function FileManager({ deviceUid, latestCommandResult }: FileManagerProps) {
   const queryClient = useQueryClient();
   const [currentPath, setCurrentPath] = useState<string>('/storage/emulated/0');
+  const [pathInput, setPathInput] = useState<string>('/storage/emulated/0');
   const [files, setFiles] = useState<FileItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export function FileManager({ deviceUid, latestCommandResult }: FileManagerProps
     const path = rawPath.endsWith('/') && rawPath.length > 1 ? rawPath.slice(0, -1) : rawPath;
     
     setCurrentPath(path);
+    setPathInput(path);
     setLastError(null);
 
     if (!forceRefresh) {
@@ -81,6 +83,13 @@ export function FileManager({ deviceUid, latestCommandResult }: FileManagerProps
       commandType: 'list_directory',
       params: { path },
     });
+  };
+
+  const handlePathSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pathInput.trim()) {
+      loadDirectory(pathInput.trim());
+    }
   };
 
   // تحميل المجلد الافتراضي عند الفتح
@@ -114,9 +123,34 @@ export function FileManager({ deviceUid, latestCommandResult }: FileManagerProps
         >
           ⬆️ Up
         </button>
-        <div style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 13, background: 'var(--bg-surface)', padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)' }}>
-          {currentPath}
-        </div>
+        <form onSubmit={handlePathSubmit} style={{ flex: 1, display: 'flex', gap: 8 }}>
+          <input
+            type="text"
+            value={pathInput}
+            onChange={(e) => setPathInput(e.target.value)}
+            placeholder="Enter path (e.g., /storage/emulated/0/Download)"
+            style={{
+              flex: 1,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 13,
+              background: 'var(--bg-surface)',
+              padding: '6px 12px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              outline: 'none',
+            }}
+            disabled={isLoading}
+          />
+          <button
+            type="submit"
+            className="btn btn-primary btn-sm"
+            disabled={isLoading || !pathInput.trim()}
+            style={{ padding: '6px 12px' }}
+          >
+            Go
+          </button>
+        </form>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => loadDirectory(currentPath, true)}

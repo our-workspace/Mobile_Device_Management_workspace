@@ -118,13 +118,21 @@ export const CommandService = {
 
   // تحديث حالة الأمر عند استلام command_ack
   async markAcknowledged(commandId: string): Promise<void> {
-    await prisma.command.update({
-      where: { commandId },
-      data: {
-        status: 'IN_PROGRESS',
-        acknowledgedAt: new Date(),
-      },
-    });
+    try {
+      await prisma.command.update({
+        where: { commandId },
+        data: {
+          status: 'IN_PROGRESS',
+          acknowledgedAt: new Date(),
+        },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        console.warn(`[CommandService] Command ${commandId} not found to mark acknowledged (possibly cancelled)`);
+      } else {
+        throw error;
+      }
+    }
   },
 
   // تحديث الأمر عند استلام command_result
@@ -135,30 +143,38 @@ export const CommandService = {
     errorCode?: string,
     errorMessage?: string
   ): Promise<void> {
-    await prisma.command.update({
-      where: { commandId },
-      data: {
-        status: status === 'SUCCESS' ? 'SUCCESS' : 'FAILURE',
-        result: (result ?? undefined) as any,
-        errorCode: errorCode ?? null,
-        errorMessage: errorMessage ?? null,
-        completedAt: new Date(),
-      },
-    });
-
-    // إزالة من Redis queue إذا كان موجوداً (اختياري)
-    const command = await prisma.command.findUnique({
-      where: { commandId },
-      include: { device: true },
-    });
-    if (command) {
-      await safeRedis(async (redis) => {
-        await redis.lrem(
-          RedisKeys.devicePendingCmds(command.device.deviceUid),
-          1,
-          commandId
-        );
+    try {
+      await prisma.command.update({
+        where: { commandId },
+        data: {
+          status: status === 'SUCCESS' ? 'SUCCESS' : 'FAILURE',
+          result: (result ?? undefined) as any,
+          errorCode: errorCode ?? null,
+          errorMessage: errorMessage ?? null,
+          completedAt: new Date(),
+        },
       });
+
+      // إزالة من Redis queue إذا كان موجوداً (اختياري)
+      const command = await prisma.command.findUnique({
+        where: { commandId },
+        include: { device: true },
+      });
+      if (command) {
+        await safeRedis(async (redis) => {
+          await redis.lrem(
+            RedisKeys.devicePendingCmds(command.device.deviceUid),
+            1,
+            commandId
+          );
+        });
+      }
+    } catch (error: any) {
+      if (error.code === 'P2025') {
+        console.warn(`[CommandService] Command ${commandId} not found to mark completed (possibly cancelled)`);
+      } else {
+        throw error;
+      }
     }
   },
 

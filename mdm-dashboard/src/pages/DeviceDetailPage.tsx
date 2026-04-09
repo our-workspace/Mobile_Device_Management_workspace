@@ -6,7 +6,8 @@ import { devicesApi, commandsApi } from '../services/api';
 import { useDashboardStore } from '../store/dashboardStore';
 import { wsService } from '../services/wsService';
 import { FileManager } from '../components/FileManager';
-import type { DashboardEvent } from '../types';
+import { NotificationDetailModal } from '../components/NotificationDetailModal';
+import type { DashboardEvent, Notification } from '../types';
 
 const COMMANDS = [
   { type: 'get_device_info', label: '📋 Get Device Info', description: 'Fetch full device details' },
@@ -32,6 +33,10 @@ export function DeviceDetailPage() {
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'commands' | 'notifications' | 'files'>('commands');
   const [latestCommandResult, setLatestCommandResult] = useState<any | null>(null);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [notificationsPage, setNotificationsPage] = useState(1);
+  const [notificationsLimit, setNotificationsLimit] = useState(50);
+  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
 
   const { data: deviceData, isLoading } = useQuery({
     queryKey: ['device', deviceUid],
@@ -46,9 +51,9 @@ export function DeviceDetailPage() {
     refetchInterval: 5_000,
   });
 
-  const { data: notifsData } = useQuery({
-    queryKey: ['device-notifications', deviceUid],
-    queryFn: () => devicesApi.getNotifications(deviceUid!).then((r) => r.data),
+  const { data: notifsData, isLoading: notifsLoading } = useQuery({
+    queryKey: ['device-notifications', deviceUid, notificationsPage, notificationsLimit],
+    queryFn: () => devicesApi.getNotifications(deviceUid!, notificationsPage, notificationsLimit).then((r) => r.data),
     enabled: !!deviceUid && activeTab === 'notifications',
     refetchInterval: 10_000,
   });
@@ -328,41 +333,272 @@ export function DeviceDetailPage() {
         )}
 
         {activeTab === 'notifications' && (
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>App</th>
-                  <th>Title</th>
-                  <th>Text</th>
-                  <th>Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(notifsData?.notifications ?? []).length === 0 ? (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No notifications captured</td></tr>
-                ) : (
-                  (notifsData?.notifications ?? []).map((n: any) => (
-                    <tr key={n.id}>
-                      <td>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{n.appName}</div>
-                        <div className="mono text-muted" style={{ fontSize: 10 }}>{n.packageName}</div>
-                      </td>
-                      <td style={{ fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.title ?? '—'}</td>
-                      <td style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.text ?? '—'}</td>
-                      <td style={{ fontSize: 11 }}>{new Date(n.postedAt).toLocaleString()}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Pagination Controls */}
+            <div style={{ 
+              padding: '12px 16px', 
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 12
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Page:</span>
+                <button
+                  onClick={() => setNotificationsPage(1)}
+                  disabled={notificationsPage === 1}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px', fontSize: 11 }}
+                >
+                  First
+                </button>
+                <button
+                  onClick={() => setNotificationsPage(Math.max(1, notificationsPage - 1))}
+                  disabled={notificationsPage === 1}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px', fontSize: 11 }}
+                >
+                  Previous
+                </button>
+                <span style={{ 
+                  fontSize: 12, 
+                  fontWeight: 600, 
+                  color: 'var(--text-primary)',
+                  minWidth: '80px',
+                  textAlign: 'center'
+                }}>
+                  {notificationsPage} / {notifsData?.pages || 1}
+                </span>
+                <button
+                  onClick={() => setNotificationsPage(Math.min(notifsData?.pages || 1, notificationsPage + 1))}
+                  disabled={notificationsPage >= (notifsData?.pages || 1)}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px', fontSize: 11 }}
+                >
+                  Next
+                </button>
+                <button
+                  onClick={() => setNotificationsPage(notifsData?.pages || 1)}
+                  disabled={notificationsPage >= (notifsData?.pages || 1)}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px', fontSize: 11 }}
+                >
+                  Last
+                </button>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Show:</span>
+                {[20, 50, 100, 200].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => {
+                      setNotificationsLimit(n);
+                      setNotificationsPage(1); // Reset to first page when changing limit
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      border: '1px solid',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: notificationsLimit === n ? 'var(--bg-surface)' : 'transparent',
+                      borderColor: notificationsLimit === n ? 'rgba(255,255,255,0.15)' : 'var(--border)',
+                      color: notificationsLimit === n ? 'var(--text-primary)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Package Filter & Grouping */}
+            {notifsData?.notifications && notifsData.notifications.length > 0 && (
+              <div style={{ 
+                padding: '12px 16px', 
+                borderBottom: '1px solid var(--border)',
+                background: 'var(--bg-secondary)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+                    📦 Group by App:
+                  </span>
+                  {(() => {
+                    // Group notifications by packageName
+                    type GroupedData = Record<string, { count: number; appName: string }>;
+                    const grouped: GroupedData = ((notifsData?.notifications) ?? []).reduce<GroupedData>((acc, n: any) => {
+                      const pkg = n.packageName || 'unknown';
+                      if (!acc[pkg]) {
+                        acc[pkg] = { count: 0, appName: n.appName || pkg };
+                      }
+                      acc[pkg].count++;
+                      return acc;
+                    }, {});
+                    
+                    return Object.entries(grouped)
+                      .sort(([,a], [,b]) => b.count - a.count)
+                      .map(([pkg, data]: [string, { count: number; appName: string }]) => (
+                        <button
+                          key={pkg}
+                          onClick={() => setSelectedPackage(selectedPackage === pkg ? null : pkg)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: 20,
+                            border: '1px solid',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            background: selectedPackage === pkg ? 'var(--accent-primary-glow)' : 'var(--bg-surface)',
+                            borderColor: selectedPackage === pkg ? 'var(--accent-primary)' : 'var(--border)',
+                            color: selectedPackage === pkg ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                            transition: 'all 0.15s'
+                          }}
+                          title={pkg}
+                        >
+                          <span>{data.appName}</span>
+                          <span style={{
+                            background: selectedPackage === pkg ? 'var(--accent-primary)' : 'var(--text-muted)',
+                            color: 'white',
+                            padding: '2px 6px',
+                            borderRadius: 10,
+                            fontSize: 10,
+                            minWidth: 18,
+                            textAlign: 'center'
+                          }}>
+                            {data.count}
+                          </span>
+                        </button>
+                      ));
+                  })()}
+                  {selectedPackage && (
+                    <button
+                      onClick={() => setSelectedPackage(null)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: '4px 10px', fontSize: 11 }}
+                    >
+                      ✕ Clear filter
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => navigate(`/devices/${deviceUid}/notifications`)}
+                  className="btn btn-primary btn-sm"
+                  style={{ padding: '6px 14px', fontSize: 12 }}
+                >
+                  🔔 Open Full Chat View
+                </button>
+              </div>
+            )}
+            
+            {/* Notifications Table */}
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>App</th>
+                    <th>Title</th>
+                    <th>Message</th>
+                    <th>Time</th>
+                    <th style={{ textAlign: 'center' }}>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {notifsLoading ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>
+                      <div className="spinner" style={{ margin: '0 auto 8px' }} /> Loading notifications...
+                    </td></tr>
+                  ) : (notifsData?.notifications ?? []).filter((n: any) => !selectedPackage || n.packageName === selectedPackage).length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>
+                      {selectedPackage ? `No notifications from ${selectedPackage} on this page` : 'No notifications captured'}
+                    </td></tr>
+                  ) : (
+                    (notifsData?.notifications ?? [])
+                      .filter((n: any) => !selectedPackage || n.packageName === selectedPackage)
+                      .map((n: any) => (
+                      <tr key={n.id}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{
+                              width: 30, height: 30, borderRadius: 8, background: 'var(--bg-surface)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0,
+                            }}>
+                              📱
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{n.appName}</div>
+                              <div className="mono text-muted" style={{ fontSize: 10 }}>{n.packageName}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ fontSize: 12, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {n.title ?? <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No title</span>}
+                        </td>
+                        <td style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {n.text ?? '—'}
+                        </td>
+                        <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(n.postedAt).toLocaleString()}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            id={`notif-details-${n.id}`}
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: 11, padding: '4px 10px', gap: 4 }}
+                            onClick={() => setSelectedNotification(n as Notification)}
+                            title="View full notification details"
+                          >
+                            🔍 Details
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              
+              {/* Pagination Info */}
+              {notifsData && notifsData.total > 0 && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderTop: '1px solid var(--border)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: 12,
+                  color: 'var(--text-muted)'
+                }}>
+                  <div>
+                    Showing {((notificationsPage - 1) * notificationsLimit) + 1} to {Math.min(notificationsPage * notificationsLimit, notifsData.total)} of {notifsData.total} notifications
+                  </div>
+                  <div>
+                    Total pages: {notifsData.pages}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {activeTab === 'files' && (
           <FileManager deviceUid={deviceUid!} latestCommandResult={latestCommandResult} />
         )}
       </div>
+
+      {/* Notification Detail Modal */}
+      <NotificationDetailModal
+        notification={selectedNotification}
+        onClose={() => setSelectedNotification(null)}
+      />
     </>
   );
 }

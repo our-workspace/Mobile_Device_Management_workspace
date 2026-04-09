@@ -89,35 +89,55 @@ exports.CommandService = {
     },
     // تحديث حالة الأمر عند استلام command_ack
     async markAcknowledged(commandId) {
-        await prisma_1.default.command.update({
-            where: { commandId },
-            data: {
-                status: 'IN_PROGRESS',
-                acknowledgedAt: new Date(),
-            },
-        });
+        try {
+            await prisma_1.default.command.update({
+                where: { commandId },
+                data: {
+                    status: 'IN_PROGRESS',
+                    acknowledgedAt: new Date(),
+                },
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                console.warn(`[CommandService] Command ${commandId} not found to mark acknowledged (possibly cancelled)`);
+            }
+            else {
+                throw error;
+            }
+        }
     },
     // تحديث الأمر عند استلام command_result
     async markCompleted(commandId, status, result, errorCode, errorMessage) {
-        await prisma_1.default.command.update({
-            where: { commandId },
-            data: {
-                status: status === 'SUCCESS' ? 'SUCCESS' : 'FAILURE',
-                result: (result ?? undefined),
-                errorCode: errorCode ?? null,
-                errorMessage: errorMessage ?? null,
-                completedAt: new Date(),
-            },
-        });
-        // إزالة من Redis queue إذا كان موجوداً (اختياري)
-        const command = await prisma_1.default.command.findUnique({
-            where: { commandId },
-            include: { device: true },
-        });
-        if (command) {
-            await (0, redis_1.safeRedis)(async (redis) => {
-                await redis.lrem(redis_1.RedisKeys.devicePendingCmds(command.device.deviceUid), 1, commandId);
+        try {
+            await prisma_1.default.command.update({
+                where: { commandId },
+                data: {
+                    status: status === 'SUCCESS' ? 'SUCCESS' : 'FAILURE',
+                    result: (result ?? undefined),
+                    errorCode: errorCode ?? null,
+                    errorMessage: errorMessage ?? null,
+                    completedAt: new Date(),
+                },
             });
+            // إزالة من Redis queue إذا كان موجوداً (اختياري)
+            const command = await prisma_1.default.command.findUnique({
+                where: { commandId },
+                include: { device: true },
+            });
+            if (command) {
+                await (0, redis_1.safeRedis)(async (redis) => {
+                    await redis.lrem(redis_1.RedisKeys.devicePendingCmds(command.device.deviceUid), 1, commandId);
+                });
+            }
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                console.warn(`[CommandService] Command ${commandId} not found to mark completed (possibly cancelled)`);
+            }
+            else {
+                throw error;
+            }
         }
     },
     // جلب سجل الأوامر لجهاز معين

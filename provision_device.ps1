@@ -41,16 +41,15 @@ function Invoke-ProvisionDevice {
 
     # 3. Network & Device Permissions
     Write-Host "[3/7] Granting network/device permissions..." -ForegroundColor Yellow
-    adb_device shell pm grant $PACKAGE_NAME android.permission.READ_PHONE_STATE      | Out-Null
-    adb_device shell pm grant $PACKAGE_NAME android.permission.ACCESS_NETWORK_STATE  | Out-Null
-    adb_device shell pm grant $PACKAGE_NAME android.permission.ACCESS_WIFI_STATE     | Out-Null
+    adb_device shell pm grant $PACKAGE_NAME android.permission.READ_PHONE_STATE 2>&1 | Out-Null
     Write-Host "      Done" -ForegroundColor Green
 
     # 4. Storage Permissions
     Write-Host "[4/7] Granting storage permissions..." -ForegroundColor Yellow
-    adb_device shell pm grant $PACKAGE_NAME android.permission.READ_EXTERNAL_STORAGE | Out-Null
+    adb_device shell pm grant $PACKAGE_NAME android.permission.READ_EXTERNAL_STORAGE 2>&1 | Out-Null
+    adb_device shell pm grant $PACKAGE_NAME android.permission.WRITE_EXTERNAL_STORAGE 2>&1 | Out-Null
     # لأندرويد 11+ للوصول لكامل الذاكرة
-    adb_device shell appops set $PACKAGE_NAME MANAGE_EXTERNAL_STORAGE allow | Out-Null
+    adb_device shell appops set $PACKAGE_NAME MANAGE_EXTERNAL_STORAGE allow 2>&1 | Out-Null
     Write-Host "      Done" -ForegroundColor Green
 
     # 5. Doze Whitelist (Battery Optimization)

@@ -50,8 +50,12 @@ export const devicesApi = {
   stats: () =>
     api.get<{ total: number; online: number; offline: number }>('/devices/stats'),
 
-  getNotifications: (deviceUid: string, limit = 50) =>
-    api.get<{ notifications: any[] }>(`/devices/${deviceUid}/notifications?limit=${limit}`),
+  getNotifications: (deviceUid: string, page = 1, limit = 50) =>
+    api.get<{ notifications: any[]; total: number; page: number; limit: number; pages: number }>(`/devices/${deviceUid}/notifications?page=${page}&limit=${limit}`),
+
+  // جلب جميع الإشعارات مجمعة حسب التطبيق (لعرض الدردشة)
+  getAllNotificationsGrouped: (deviceUid: string) =>
+    api.get<{ total: number; apps: any[] }>(`/devices/${deviceUid}/notifications/all`),
 
   // جلب آخر heartbeat مخزّن في DB (يعمل سواء كان الجهاز online أو offline)
   getLatestHeartbeat: (deviceUid: string) =>

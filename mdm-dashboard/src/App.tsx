@@ -9,6 +9,7 @@ import { DevicesListPage } from './pages/DevicesListPage';
 import { DeviceDetailPage } from './pages/DeviceDetailPage';
 import { CommandsPage } from './pages/CommandsPage';
 import { SmsBackupListPage, SmsViewerPage } from './pages/SmsViewerPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { Sidebar } from './components/Sidebar';
 import './index.css';
 
@@ -76,6 +77,7 @@ function App() {
                     <Route path="/" element={<Navigate to="/devices" replace />} />
                     <Route path="/devices" element={<DevicesListPage />} />
                     <Route path="/devices/:deviceUid" element={<DeviceDetailPage />} />
+                    <Route path="/devices/:deviceUid/notifications" element={<NotificationsPage />} />
                     <Route path="/devices/:deviceUid/sms" element={<SmsBackupListPage />} />
                     <Route path="/devices/:deviceUid/sms/:backupFileId" element={<SmsViewerPage />} />
                     <Route path="/commands" element={<CommandsPage />} />

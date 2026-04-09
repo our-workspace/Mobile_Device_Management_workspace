@@ -37,6 +37,7 @@ async function bootstrap() {
                 ? { target: 'pino-pretty', options: { colorize: true } }
                 : undefined,
         },
+        bodyLimit: 500 * 1024 * 1024, // 50MB - increase for large SMS backups
     });
     // ---- Plugins ----
     await app.register(cors_1.default, {
