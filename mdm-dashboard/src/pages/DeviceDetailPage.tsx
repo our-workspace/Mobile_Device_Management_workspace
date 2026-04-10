@@ -37,6 +37,13 @@ export function DeviceDetailPage() {
   const [notificationsPage, setNotificationsPage] = useState(1);
   const [notificationsLimit, setNotificationsLimit] = useState(50);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const { data: deviceData, isLoading } = useQuery({
     queryKey: ['device', deviceUid],
@@ -139,7 +146,12 @@ export function DeviceDetailPage() {
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+        gap: 16,
+        marginBottom: 24
+      }}>
         {/* Device Info Card */}
         <div className="card">
           <div className="card-header">
@@ -277,7 +289,15 @@ export function DeviceDetailPage() {
 
       {/* Tabs: Commands / Notifications / Files */}
       <div className="card">
-        <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
+        <div style={{
+          display: 'flex',
+          gap: 0,
+          marginBottom: 16,
+          borderBottom: '1px solid var(--border)',
+          overflowX: 'auto',
+          scrollbarWidth: 'none',
+          WebkitOverflowScrolling: 'touch'
+        }}>
           {(['commands', 'notifications', 'files'] as const).map((tab) => (
             <button
               key={tab}
@@ -294,6 +314,7 @@ export function DeviceDetailPage() {
                 textTransform: 'capitalize',
                 transition: 'all 0.15s',
                 marginBottom: -1,
+                whiteSpace: 'nowrap',
               }}
             >
               {tab === 'commands' ? '📋 Command History' : tab === 'files' ? '📁 File Explorer' : '🔔 Notifications'}

@@ -75,7 +75,7 @@ export function DevicesListPage() {
       </div>
 
       {/* Stats */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', maxWidth: 480 }}>
+      <div className="stats-grid" style={{ maxWidth: 480 }}>
         <div className="stat-card blue">
           <div className="stat-label">Total</div>
           <div className="stat-value">{devices.length}</div>
