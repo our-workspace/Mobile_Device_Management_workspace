@@ -13,7 +13,9 @@ DB_PORT="5432"
 
 # Backup directory
 BACKUP_DIR="$HOME/Mobile_Device_Management_workspace/db_backups"
+TMP_DIR="$HOME/tmp"
 mkdir -p "$BACKUP_DIR"
+mkdir -p "$TMP_DIR"
 
 # Colors
 GREEN='\033[0;32m'
@@ -106,9 +108,13 @@ restore_database() {
     # If compressed, decompress to temp file
     local temp_file=""
     if [[ "$backup_file" == *.gz ]]; then
-        temp_file="/tmp/restore_$(date +%s).sql"
-        echo "Decompressing backup..."
+        temp_file="$TMP_DIR/restore_$(date +%s).sql"
+        echo "Decompressing backup to: $temp_file"
         gunzip -c "$backup_file" > "$temp_file"
+        if [ ! -f "$temp_file" ]; then
+            echo -e "${RED}✗ Failed to decompress backup file${NC}"
+            exit 1
+        fi
         backup_file="$temp_file"
     fi
     
