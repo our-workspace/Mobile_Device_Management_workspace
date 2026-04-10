@@ -2,7 +2,7 @@
 import { FastifyInstance } from 'fastify';
 import { requireAdmin } from '../middleware/auth.middleware';
 import { ConnectionRegistry } from '../websocket/ConnectionRegistry';
-import { testConnection } from '../db/postgres';
+import prisma from '../db/prisma';
 import { getRedis } from '../db/redis';
 
 export async function statusRoutes(app: FastifyInstance): Promise<void> {
@@ -60,8 +60,8 @@ async function runHealthChecks(): Promise<Array<{ name: string; ok: boolean; lat
 async function checkDatabase() {
   const start = Date.now();
   try {
-    const connected = await testConnection();
-    return { name: 'postgresql', ok: connected, latencyMs: Date.now() - start };
+    await prisma.$queryRaw`SELECT 1`;
+    return { name: 'postgresql', ok: true, latencyMs: Date.now() - start };
   } catch (err) {
     return { name: 'postgresql', ok: false, error: (err as Error).message };
   }

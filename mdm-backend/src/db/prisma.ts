@@ -1,6 +1,20 @@
 // src/db/prisma.ts
-// Re-export from db.ts for compatibility (replaces Prisma)
-import db from './db';
+// Singleton Prisma Client
+import { PrismaClient } from '@prisma/client';
+import { config } from '../config';
 
-export const prisma = db;
-export default db;
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: config.isDev ? ['warn', 'error'] : ['error'],
+  });
+
+if (config.isDev) {
+  globalForPrisma.prisma = prisma;
+}
+
+export default prisma;

@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --exit-child src/index.ts",
     "build": "rimraf dist && tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:seed": "ts-node src/scripts/seed.ts",
+    "db:reset": "prisma migrate reset --force"
   },
   "keywords": [
     "mdm",
@@ -21,12 +27,12 @@
     "@fastify/http-proxy": "^8.4.0",
     "@fastify/multipart": "^8.0.0",
     "@fastify/static": "^6.12.0",
+    "@prisma/client": "^5.11.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "fastify": "^4.26.2",
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.3",
     "pino-pretty": "^11.3.0",
     "uuid": "^9.0.1",
     "ws": "^8.16.0",
@@ -36,9 +42,9 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.11.30",
-    "@types/pg": "^8.11.0",
     "@types/uuid": "^9.0.8",
     "@types/ws": "^8.5.10",
+    "prisma": "^5.11.0",
     "rimraf": "^5.0.5",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.3"
