@@ -7,7 +7,7 @@ const navItems = [
   { path: '/commands', icon: '⚡', label: 'Commands Log' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { admin, clearAuth } = useDashboardStore();
@@ -20,14 +20,21 @@ export function Sidebar() {
   const initials = admin?.username?.charAt(0).toUpperCase() ?? 'A';
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       {/* Logo */}
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">🛡️</div>
-        <div>
-          <div className="sidebar-logo-text">MDM Console</div>
-          <div className="sidebar-logo-sub">Device Management</div>
+      <div className="sidebar-logo" style={{ justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="sidebar-logo-icon">🛡️</div>
+          <div>
+            <div className="sidebar-logo-text">MDM Console</div>
+            <div className="sidebar-logo-sub">Device Management</div>
+          </div>
         </div>
+        {onClose && (
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 18, cursor: 'pointer', display: 'block' }}>
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Navigation */}

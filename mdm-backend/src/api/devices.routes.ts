@@ -483,24 +483,20 @@ export async function devicesRoutes(app: FastifyInstance): Promise<void> {
 
       let messages = data.messages;
 
-      // ---- فلترة ----
-      if (typeFilter === 'inbox') messages = messages.filter(m => m.type === 'inbox');
-      else if (typeFilter === 'sent') messages = messages.filter(m => m.type === 'sent');
+      // 1. فلترة البحث العامة (يطبق على كل شيء: الرسائل وجهات الاتصال)
+      let searchedMessages = data.messages;
+      if (search) {
+        searchedMessages = searchedMessages.filter(m =>
+          m.body.toLowerCase().includes(search) ||
+          m.address.toLowerCase().includes(search)
+        );
+      }
+      if (typeFilter === 'inbox') searchedMessages = searchedMessages.filter(m => m.type === 'inbox');
+      else if (typeFilter === 'sent') searchedMessages = searchedMessages.filter(m => m.type === 'sent');
 
-      if (threadId) messages = messages.filter(m => m.threadId === threadId);
-
-      if (contact) messages = messages.filter(m =>
-        m.address.toLowerCase().includes(contact)
-      );
-
-      if (search) messages = messages.filter(m =>
-        m.body.toLowerCase().includes(search) ||
-        m.address.toLowerCase().includes(search)
-      );
-
-      // ---- إحصائيات جهات الاتصال (contacts list) ----
+      // 2. إحصائيات جهات الاتصال مبنية على نتائج "البحث" فقط
       const contactsMap = new Map<string, { address: string; count: number; lastDate: number; threadIds: Set<string> }>();
-      for (const m of data.messages) {
+      for (const m of searchedMessages) {
         const addr = m.address;
         if (!contactsMap.has(addr)) {
           contactsMap.set(addr, { address: addr, count: 0, lastDate: 0, threadIds: new Set() });
@@ -514,10 +510,22 @@ export async function devicesRoutes(app: FastifyInstance): Promise<void> {
         .sort((a, b) => b.lastDate - a.lastDate)
         .map(c => ({ address: c.address, count: c.count, lastDate: c.lastDate, threadCount: c.threadIds.size }));
 
+      // 3. فلترة الرسائل النهائية (لعرضها في اليمين)، يضاف لها فلتر "جهة الاتصال المختارة"
+      let finalMessages = searchedMessages;
+      if (contact) {
+        finalMessages = finalMessages.filter(m => m.address.toLowerCase().includes(contact));
+      }
+      if (threadId) {
+        finalMessages = finalMessages.filter(m => m.threadId === threadId);
+      }
+
+      // 4. الترتيب من الأقدم للأحدث (في الشات)
+      finalMessages.sort((a, b) => a.dateMs - b.dateMs);
+
       // ---- Pagination ----
-      const total  = messages.length;
+      const total  = finalMessages.length;
       const offset = (page - 1) * limit;
-      const paged  = messages.slice(offset, offset + limit);
+      const paged  = finalMessages.slice(offset, offset + limit);
 
       return reply.send({
         meta: {
